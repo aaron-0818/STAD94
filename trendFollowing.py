@@ -1,6 +1,5 @@
 ### Quantiacs Trend Following Trading System Example
 # import necessary Packages below:
-import qtb
 import statsmodels 
 import numpy as np
 import pandas as pd
@@ -11,38 +10,31 @@ from statsmodels.tsa.stattools import coint
 
 def myTradingSystem(DATE, OPEN, HIGH, LOW, CLOSE, VOL, exposure, equity, settings):
     ''' This system uses trend following techniques to allocate capital into the desired equities'''
-    pos = [0,0]
+    
+
     nMarkets=CLOSE.shape[1]
-    S1 = CLOSE[:,0]
-    S2 = CLOSE[:,1]
+    hightrigger = 12 #[6:2:12]#
+    closetrigger = 3 #[1:1:3]#
+    small = 5 #[1:1:10]#
+    actuallookback = 20 #[20:10:100]#
+    
+    S1 = CLOSE[-actuallookback:,1]
+    S2 = CLOSE[-actuallookback:,2]
     ratios = S1/S2
-    ma1 = ratios[-6:].mean()
+    ma1 = ratios[-small:].mean()
     ma2 = ratios.mean()
     std = ratios.std()
-    zscore = (ma1-ma2)/std
-    if zscore > 1:
-        pos = [-1,ratios[-1]]
-    elif zscore < -1:
-        pos = [1,-ratios[-1]]
-    elif abs(zscore) < 0.75:
-        pos = [0,0]
-#    periodLonger=200
-#    periodShorter=40
-#
-#    # Calculate Simple Moving Average (SMA)
-#    smaLongerPeriod=numpy.nansum(CLOSE[-periodLonger:,:],axis=0)/periodLonger
-#    smaShorterPeriod=numpy.nansum(CLOSE[-periodShorter:,:],axis=0)/periodShorter
-#
-#    longEquity= smaShorterPeriod > smaLongerPeriod
-#    shortEquity= ~longEquity
-#
-#    pos=numpy.zeros(nMarkets)
-#    pos[longEquity]=1
-#    pos[shortEquity]=-1
-
-    weights = pos/np.nansum(abs(pos))
-
-    return weights, settings
+    zscore =10*(ma1-ma2)/std
+    pos=np.zeros(nMarkets)
+    if zscore > hightrigger:
+        pos = np.array([0,-1,ratios[-1]])
+    elif zscore < -hightrigger:
+        pos = np.array([0, 1,-ratios[-1]])
+    elif abs(zscore) < closetrigger:
+        pos = np.array([1,0,0])
+    else:
+        pos = exposure[-2,:]
+    return pos, settings
 
 
 def mySettings():
@@ -63,10 +55,10 @@ def mySettings():
 
     # Futures Contracts
 
-    settings['markets']  = ['CASH','DTE', 'PPL']
-#    settings['beginInSample'] = '20120506'
-#    settings['endInSample'] = '20150506'
-    settings['lookback']= 60
+    settings['markets']  = [ 'CASH','DTE','PPL']
+    settings['beginInSample'] = '20100506'
+    settings['endInSample'] = '20150506'
+    settings['lookback']= 100  
     settings['budget']= 10**6
     settings['slippage']= 0.05
 
@@ -98,41 +90,41 @@ def zscores(series):
 
 # Evaluate trading system defined in current file.
 if __name__ == '__main__':
-    utilityMarkets = ["AES","AEE", "AEP","CNP","CMS","ED","D","DTE","DUK","EIX","ETR","EXC","FE","NEE","NI","NRG","PCG","PSX","PNW","PPL","PEG","SCG","SRE","SO","WEC"]
-    data = qtb.loadData(utilityMarkets, qtb.REQUIRED_DATA,False,'20120506','20150506')
-    closeData = pd.DataFrame(data['CLOSE'],columns=utilityMarkets)
+#    utilityMarkets = ["AES","AEE", "AEP","CNP","CMS","ED","D","DTE","DUK","EIX","ETR","EXC","FE","NEE","NI","NRG","PCG","PSX","PNW","PPL","PEG","SCG","SRE","SO","WEC"]
+#    data = qtb.loadData(utilityMarkets, qtb.REQUIRED_DATA,False,'20120506','20150506')
+#    closeData = pd.DataFrame(data['CLOSE'],columns=utilityMarkets)
 #    scores,pvalues,pairs = find_cointegrated_pairs(closeData)
 #    m = [0,0.2,0.4,0.6,0.8,1]
 #    seaborn.heatmap(pvalues, xticklabels=utilityMarkets, yticklabels=utilityMarkets, cmap='RdYlGn_r',mask = (pvalues >= 0.98))
 #    plt.show()
-    S1 = closeData['DTE']
-    S2 = closeData['PPL']
-    ratios = closeData['DTE'] / closeData['PPL']
-
-    trainingnumber = len(ratios)*2//3
-    train = ratios
-    test = ratios[trainingnumber:]
-    ratios_mavg5 = train.rolling(window=5,
-                               center=False).mean()
-    ratios_mavg60 = train.rolling(window=60,
-                               center=False).mean()
-    std_60 = train.rolling(window=60,
-                        center=False).std()
-    zscore_60_5 = (ratios_mavg5 - ratios_mavg60)/std_60
-    plt.figure(figsize=(15,7))
-    plt.plot(train.index, train.values)
-    plt.plot(ratios_mavg5.index, ratios_mavg5.values)
-    plt.plot(ratios_mavg60.index, ratios_mavg60.values)
-    plt.legend(['Ratio','5d Ratio MA', '60d Ratio MA'])
-    plt.ylabel('Ratio')
-    plt.show()
-    plt.figure(figsize=(15,7))
-    zscore_60_5.plot()
-    plt.axhline(0, color='black')
-    plt.axhline(1.0, color='red', linestyle='--')
-    plt.axhline(-1.0, color='green', linestyle='--')
-    plt.legend(['Rolling Ratio z-Score', 'Mean', '+1', '-1'])
-    plt.show()
+#    S1 = closeData['DTE']
+#    S2 = closeData['PPL']
+#    ratios = closeData['DTE'] / closeData['PPL']
+#
+#    trainingnumber = len(ratios)*2//3
+#    train = ratios
+#    test = ratios[trainingnumber:]
+#    ratios_mavg5 = train.rolling(window=5,
+#                               center=False).mean()
+#    ratios_mavg60 = train.rolling(window=60,
+#                               center=False).mean()
+#    std_60 = train.rolling(window=60,
+#                        center=False).std()
+#    zscore_60_5 = (ratios_mavg5 - ratios_mavg60)/std_60
+#    plt.figure(figsize=(15,7))
+#    plt.plot(train.index, train.values)
+#    plt.plot(ratios_mavg5.index, ratios_mavg5.values)
+#    plt.plot(ratios_mavg60.index, ratios_mavg60.values)
+#    plt.legend(['Ratio','5d Ratio MA', '60d Ratio MA'])
+#    plt.ylabel('Ratio')
+#    plt.show()
+#    plt.figure(figsize=(15,7))
+#    zscore_60_5.plot()
+#    plt.axhline(0, color='black')
+#    plt.axhline(1.0, color='red', linestyle='--')
+#    plt.axhline(-1.0, color='green', linestyle='--')
+#    plt.legend(['Rolling Ratio z-Score', 'Mean', '+1', '-1'])
+#    plt.show()
 #    ma1 = ratios.rolling(window=5,
 #                               center=False).mean()
 #    ma2 = ratios.rolling(window=60,
@@ -167,4 +159,5 @@ if __name__ == '__main__':
 #    print(money)
   
     #[('DTE', 'PPL')]
-    #results = qtb.runts(__file__)
+    import quantiacsToolbox
+    results = quantiacsToolbox.runts(__file__)
